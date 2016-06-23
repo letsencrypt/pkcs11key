@@ -131,8 +131,7 @@ func initialize(modulePath string) (ctx, error) {
 		return module, nil
 	}
 
-	newModule := ctx(pkcs11.New(modulePath))
-
+	newModule := pkcs11.New(modulePath)
 	if newModule == nil {
 		return nil, fmt.Errorf("unable to load PKCS#11 module")
 	}
@@ -142,9 +141,9 @@ func initialize(modulePath string) (ctx, error) {
 		return nil, err
 	}
 
-	modules[modulePath] = newModule
+	modules[modulePath] = ctx(newModule)
 
-	return newModule, nil
+	return ctx(newModule), nil
 }
 
 // New instantiates a new handle to a PKCS #11-backed key.
