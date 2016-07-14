@@ -254,6 +254,16 @@ func sign(t *testing.T, ps *Key) []byte {
 	return output
 }
 
+func TestInitializeBadModule(t *testing.T) {
+	ctx, err := initialize("/dev/null")
+	if err == nil {
+		t.Errorf("Expected failure when initializing modulePath /dev/null, got none")
+	}
+	if ctx != nil {
+		t.Errorf("Expected nil ctx when initializing modulePath /dev/null")
+	}
+}
+
 func TestSign(t *testing.T) {
 	ps := setup(t, "rsa")
 	sig := sign(t, ps)
