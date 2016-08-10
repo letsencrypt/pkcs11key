@@ -225,7 +225,7 @@ func setup(t *testing.T, label string) *Key {
 		tokenLabel: "token label",
 		pin:        "unused",
 	}
-	err := ps.setup(label)
+	err := ps.setup(pkcs11.NewAttribute(pkcs11.CKA_LABEL, label))
 	if err != nil {
 		t.Fatalf("Failed to set up Key: %s", err)
 	}
@@ -338,7 +338,7 @@ func TestEcKeyErrors(t *testing.T) {
 	}
 
 	// Trying to load private EC key with no public key
-	err := k.setup("no_public_key_ec")
+	err := k.setup(pkcs11.NewAttribute(pkcs11.CKA_LABEL, "no_public_key_ec"))
 	if err == nil {
 		t.Errorf("Unexpected success")
 	}
@@ -347,7 +347,7 @@ func TestEcKeyErrors(t *testing.T) {
 	}
 
 	// Trying to load private EC key with invalid EC point
-	err = k.setup("invalid_ec_point")
+	err = k.setup(pkcs11.NewAttribute(pkcs11.CKA_LABEL, "invalid_ec_point"))
 	if err == nil {
 		t.Errorf("Unexpected success")
 	}
@@ -377,7 +377,7 @@ func TestAttributeTypeInvalid(t *testing.T) {
 		tokenLabel: "token label",
 		pin:        "unused",
 	}
-	err := ps.setup("rsa")
+	err := ps.setup(pkcs11.NewAttribute(pkcs11.CKA_LABEL, "rsa"))
 	if err != nil {
 		t.Errorf("Failed to set up with a token that returns CKR_ATTRIBUTE_TYPE_INVALID: %s", err)
 	}
