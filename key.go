@@ -163,14 +163,32 @@ func New(modulePath, tokenLabel, pin, privateKeyLabel string) (ps *Key, err erro
 		tokenLabel: tokenLabel,
 		pin:        pin,
 	}
-	err = ps.setup(privateKeyLabel)
+	err = ps.setup(pkcs11.NewAttribute(pkcs11.CKA_LABEL, privateKeyLabel))
+	return
+}
+
+// NewWithID creates a new key handle using the provided key ID.
+func NewWithID(modulePath, tokenLabel, pin string, keyID []byte) (ps *Key, err error) {
+	module, err := initialize(modulePath)
 	if err != nil {
 		return
 	}
-	return ps, nil
+	if module == nil {
+		err = fmt.Errorf("nil module")
+		return
+	}
+
+	// Initialize a partial key
+	ps = &Key{
+		module:     module,
+		tokenLabel: tokenLabel,
+		pin:        pin,
+	}
+	err = ps.setup(pkcs11.NewAttribute(pkcs11.CKA_ID, keyID))
+	return
 }
 
-func (ps *Key) setup(privateKeyLabel string) (err error) {
+func (ps *Key) setup(keyAttr *pkcs11.Attribute) (err error) {
 	// Open a session
 	ps.sessionMu.Lock()
 	defer ps.sessionMu.Unlock()
@@ -181,7 +199,7 @@ func (ps *Key) setup(privateKeyLabel string) (err error) {
 	ps.session = &session
 
 	// Fetch the private key by its label
-	privateKeyHandle, err := ps.getPrivateKey(ps.module, session, privateKeyLabel)
+	privateKeyHandle, err := ps.getPrivateKey(ps.module, session, keyAttr)
 	if err != nil {
 		ps.module.CloseSession(session)
 		return
@@ -195,11 +213,11 @@ func (ps *Key) setup(privateKeyLabel string) (err error) {
 	return
 }
 
-func (ps *Key) getPrivateKey(module ctx, session pkcs11.SessionHandle, label string) (pkcs11.ObjectHandle, error) {
+func (ps *Key) getPrivateKey(module ctx, session pkcs11.SessionHandle, keyAttr *pkcs11.Attribute) (pkcs11.ObjectHandle, error) {
 	var noHandle pkcs11.ObjectHandle
 	template := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
-		pkcs11.NewAttribute(pkcs11.CKA_LABEL, label),
+		keyAttr,
 	}
 	if err := module.FindObjectsInit(session, template); err != nil {
 		return noHandle, err
