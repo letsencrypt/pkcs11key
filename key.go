@@ -1,4 +1,4 @@
-// Package pkcs11key implements crypto.Signer for PKCS #11 private
+// Package pkcs11key implements crypto.Signer & crypto.Decrypter for PKCS #11 private
 // keys. Currently, only RSA keys are supported.
 // See ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-11/v2-30/pkcs-11v2-30b-d6.pdf for
 // details of the Cryptoki PKCS#11 API.
@@ -69,11 +69,14 @@ type ctx interface {
 	OpenSession(slotID uint, flags uint) (pkcs11.SessionHandle, error)
 	SignInit(sh pkcs11.SessionHandle, m []*pkcs11.Mechanism, o pkcs11.ObjectHandle) error
 	Sign(sh pkcs11.SessionHandle, message []byte) ([]byte, error)
+	DecryptInit(sh pkcs11.SessionHandle, m []*pkcs11.Mechanism, o pkcs11.ObjectHandle) error
+	Decrypt(sh pkcs11.SessionHandle, cypher []byte) ([]byte, error)
 }
 
-// Key is an implementation of the crypto.Signer interface using a key stored
-// in a PKCS#11 hardware token.  This enables the use of PKCS#11 tokens with
-// the Go x509 library's methods for signing certificates.
+// Key is an implementation of the crypto.Signer & Decrypter interfaces using
+// a key stored in a PKCS#11 hardware token.  This enables the use of PKCS#11
+// tokens with the Go x509 library's methods for signing certificates and RSA
+// encryption.
 //
 // Each Key represents one session. Its session handle is protected internally
 // by a mutex, so at most one Sign operation can be active at a time. For best
@@ -89,24 +92,24 @@ type ctx interface {
 // to login repeatedly with an incorrect PIN, locking the PKCS#11 token.
 type Key struct {
 	// The PKCS#11 library to use
-	module ctx
+	module             ctx
 
 	// The label of the token to be used (mandatory).
 	// We will automatically search for this in the slot list.
-	tokenLabel string
+	tokenLabel         string
 
 	// The PIN to be used to log in to the device
-	pin string
+	pin                string
 
 	// The public key corresponding to the private key.
-	publicKey crypto.PublicKey
+	publicKey          crypto.PublicKey
 
 	// The an ObjectHandle pointing to the private key on the HSM.
-	privateKeyHandle pkcs11.ObjectHandle
+	privateKeyHandle   pkcs11.ObjectHandle
 
 	// A handle to the session used by this Key.
-	session   *pkcs11.SessionHandle
-	sessionMu sync.Mutex
+	session            *pkcs11.SessionHandle
+	sessionMu          sync.Mutex
 
 	// True if the private key has the CKA_ALWAYS_AUTHENTICATE attribute set.
 	alwaysAuthenticate bool
@@ -493,12 +496,10 @@ func (ps *Key) Public() crypto.PublicKey {
 	return ps.publicKey
 }
 
-// Sign performs a signature using the PKCS #11 key.
-func (ps *Key) Sign(rand io.Reader, msg []byte, opts crypto.SignerOpts) (signature []byte, err error) {
-	ps.sessionMu.Lock()
-	defer ps.sessionMu.Unlock()
+// Ensures that the key has an open session and that the token is logged in (if alwaysAuthenticate is set)
+func (ps *Key) ensureAuthSession() error {
 	if ps.session == nil {
-		return nil, errors.New("pkcs11key: session was nil")
+		return errors.New("pkcs11key: session was nil")
 	}
 
 	// When the alwaysAuthenticate bit is true (e.g. on a Yubikey NEO in PIV mode),
@@ -513,11 +514,22 @@ func (ps *Key) Sign(rand io.Reader, msg []byte, opts crypto.SignerOpts) (signatu
 		modulesMu.Lock()
 		defer modulesMu.Unlock()
 		if err := ps.module.Logout(*ps.session); err != nil {
-			return nil, fmt.Errorf("pkcs11key: logout: %s", err)
+			return fmt.Errorf("pkcs11key: logout: %s", err)
 		}
-		if err = ps.module.Login(*ps.session, pkcs11.CKU_USER, ps.pin); err != nil {
-			return nil, fmt.Errorf("pkcs11key: login: %s", err)
+		if err := ps.module.Login(*ps.session, pkcs11.CKU_USER, ps.pin); err != nil {
+			return fmt.Errorf("pkcs11key: login: %s", err)
 		}
+	}
+
+	return nil
+}
+
+// Sign performs a signature using the PKCS #11 key.
+func (ps *Key) Sign(rand io.Reader, msg []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+	ps.sessionMu.Lock()
+	defer ps.sessionMu.Unlock()
+	if err := ps.ensureAuthSession(); err != nil {
+		return nil, err
 	}
 
 	// Verify that the length of the hash is as expected
@@ -557,4 +569,28 @@ func (ps *Key) Sign(rand io.Reader, msg []byte, opts crypto.SignerOpts) (signatu
 		return nil, fmt.Errorf("pkcs11key: sign: %s", err)
 	}
 	return
+}
+
+//Decrypt performs decryption using the PKCS #11 key.
+func (ps *Key) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) ([]byte, error) {
+	ps.sessionMu.Lock()
+	defer ps.sessionMu.Unlock()
+	if err := ps.ensureAuthSession(); err != nil {
+		return nil, err
+	}
+
+	//Select decryption mechanism based on private key type
+	var mechanism []*pkcs11.Mechanism
+	switch ps.publicKey.(type) {
+	case *rsa.PublicKey:
+		mechanism = []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_RSA_PKCS, nil)}
+	case *ecdsa.PublicKey:
+		mechanism = []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}
+	}
+
+	//Decrypt
+	if err := ps.module.DecryptInit(*ps.session, mechanism, ps.privateKeyHandle); err != nil {
+		return nil, err
+	}
+	return ps.module.Decrypt(*ps.session, msg)
 }

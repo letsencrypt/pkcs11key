@@ -12,10 +12,12 @@ import (
 	"testing"
 
 	"github.com/miekg/pkcs11"
+	"errors"
 )
 
 type mockCtx struct {
 	currentSearch []*pkcs11.Attribute
+	decryptMech   *pkcs11.Mechanism
 }
 
 const sessionHandle = pkcs11.SessionHandle(17)
@@ -219,6 +221,18 @@ func (c *mockCtx) Sign(sh pkcs11.SessionHandle, message []byte) ([]byte, error) 
 	return message, nil
 }
 
+func (c *mockCtx) DecryptInit(sh pkcs11.SessionHandle, m []*pkcs11.Mechanism, o pkcs11.ObjectHandle) error {
+	if len(m) != 1 {
+		return errors.New("Expected only one decryption mechanism")
+	}
+	c.decryptMech = m[0]
+	return nil
+}
+
+func (c *mockCtx) Decrypt(sh pkcs11.SessionHandle, cypher []byte) ([]byte, error) {
+	return cypher, nil
+}
+
 func setup(t *testing.T, label string) *Key {
 	ps := Key{
 		module:     &mockCtx{},
@@ -287,6 +301,36 @@ func TestSign(t *testing.T) {
 
 	if !(bytes.Equal(signInput, sig)) {
 		t.Fatal("ECDSA signature error")
+	}
+}
+
+var decryptInput = []byte("0123456789")
+
+func decrypt(t *testing.T, ps *Key) uint {
+	output, err := ps.Decrypt(rand.Reader, decryptInput, nil)
+	if err != nil {
+		t.Fatalf("Failed to decrypt: %s", err)
+	}
+
+	if !bytes.Equal(output, decryptInput) {
+		t.Fatal("Incorrect decryption output")
+	}
+
+	//Extract mechanism used for decryption (stored by mock context in DecryptInit)
+	return ps.module.(*mockCtx).decryptMech.Mechanism
+}
+
+func TestDecrypt(t *testing.T) {
+	ps := setup(t, "rsa")
+	m := decrypt(t, ps)
+	if m != pkcs11.CKM_RSA_PKCS {
+		t.Fatalf("Incorrect mechanism used for RSA decryption, got %d", m)
+	}
+
+	ps = setup(t, "ec")
+	m = decrypt(t, ps)
+	if m != pkcs11.CKM_ECDSA {
+		t.Fatalf("Incorrect mechanism used for ECDSA decryption, got %x", m)
 	}
 }
 
