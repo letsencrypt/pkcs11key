@@ -92,24 +92,24 @@ type ctx interface {
 // to login repeatedly with an incorrect PIN, locking the PKCS#11 token.
 type Key struct {
 	// The PKCS#11 library to use
-	module             ctx
+	module ctx
 
 	// The label of the token to be used (mandatory).
 	// We will automatically search for this in the slot list.
-	tokenLabel         string
+	tokenLabel string
 
 	// The PIN to be used to log in to the device
-	pin                string
+	pin string
 
 	// The public key corresponding to the private key.
-	publicKey          crypto.PublicKey
+	publicKey crypto.PublicKey
 
 	// The an ObjectHandle pointing to the private key on the HSM.
-	privateKeyHandle   pkcs11.ObjectHandle
+	privateKeyHandle pkcs11.ObjectHandle
 
 	// A handle to the session used by this Key.
-	session            *pkcs11.SessionHandle
-	sessionMu          sync.Mutex
+	session   *pkcs11.SessionHandle
+	sessionMu sync.Mutex
 
 	// True if the private key has the CKA_ALWAYS_AUTHENTICATE attribute set.
 	alwaysAuthenticate bool

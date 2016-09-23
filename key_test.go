@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/miekg/pkcs11"
 	"errors"
+	"github.com/miekg/pkcs11"
 )
 
 type mockCtx struct {
