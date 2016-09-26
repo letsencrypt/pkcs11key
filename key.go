@@ -590,7 +590,7 @@ func (ps *Key) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) ([
 
 	//Decrypt
 	if err := ps.module.DecryptInit(*ps.session, mechanism, ps.privateKeyHandle); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("pkcs11key: decrypt: %s", err)
 	}
 	return ps.module.Decrypt(*ps.session, msg)
 }
