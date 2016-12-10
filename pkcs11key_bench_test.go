@@ -4,7 +4,10 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/pem"
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"math/big"
 	"runtime"
 	"testing"
@@ -15,8 +18,19 @@ var module = flag.String("module", "", "Path to PKCS11 module")
 var tokenLabel = flag.String("tokenLabel", "", "Token label")
 var pin = flag.String("pin", "", "PIN")
 var privateKeyLabel = flag.String("privateKeyLabel", "", "Private key label")
+var cert = flag.String("cert", "", "Certificate to sign with (PEM)")
 var sessionCount = flag.Int("sessions", runtime.GOMAXPROCS(-1), `Number of PKCS#11 sessions to use.
 For SoftHSM, GOMAXPROCS is appropriate, but for an external HSM the optimum session count depends on the HSM's parallelism.`)
+
+func readCert(certContents []byte) (*x509.Certificate, error) {
+	block, _ := pem.Decode(certContents)
+	if block == nil {
+		return nil, fmt.Errorf("no PEM found")
+	} else if block.Type != "CERTIFICATE" {
+		return nil, fmt.Errorf("incorrect PEM type %s", block.Type)
+	}
+	return x509.ParseCertificate(block.Bytes)
+}
 
 // BenchmarkPKCS11 signs a certificate repeatedly using a PKCS11 token and
 // measures speed. To run (with SoftHSM):
@@ -26,9 +40,18 @@ For SoftHSM, GOMAXPROCS is appropriate, but for an external HSM the optimum sess
 // You can adjust benchtime if you want to run for longer or shorter, and change
 // the number of CPUs to select the parallelism you want.
 func BenchmarkPKCS11(b *testing.B) {
-	if *module == "" || *tokenLabel == "" || *pin == "" || *privateKeyLabel == "" {
-		b.Fatal("Must pass all flags: module, tokenLabel, pin, and privateKeyLabel")
+	if *module == "" || *tokenLabel == "" || *pin == "" || *cert == "" {
+		b.Fatal("Must pass all flags: module, tokenLabel, pin, and cert")
 		return
+	}
+
+	certContents, err := ioutil.ReadFile(*cert)
+	if err != nil {
+		b.Fatalf("failed to read %s: %s", *cert, err)
+	}
+	cert, err := readCert(certContents)
+	if err != nil {
+		b.Fatalf("failed to parse %s: %s", *cert, err)
 	}
 
 	// A minimal, bogus certificate to be signed.
@@ -49,7 +72,7 @@ func BenchmarkPKCS11(b *testing.B) {
 		},
 	}
 
-	pool, err := NewPool(*sessionCount, *module, *tokenLabel, *pin, *privateKeyLabel)
+	pool, err := NewPool(*sessionCount, *module, *tokenLabel, *pin, cert.PublicKey)
 	if err != nil {
 		b.Fatal(err)
 		return
