@@ -65,6 +65,12 @@ func (p *Pool) Public() crypto.PublicKey {
 
 // NewPool creates a pool of Keys of size n.
 func NewPool(n int, modulePath, tokenLabel, pin, privateKeyLabel string) (*Pool, error) {
+	// Some modules may block their thread during operations, so it's important to
+	// have at least as many threads as sessions in the pool to achieve full
+	// throughput.
+	if runtime.GOMAXPROCS(0) < n {
+		runtime.GOMAXPROCS(n)
+	}
 	var err error
 	signers := make([]*Key, n)
 	for i := 0; i < n; i++ {
