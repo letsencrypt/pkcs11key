@@ -70,7 +70,9 @@ func NewPool(n int, modulePath, tokenLabel, pin, privateKeyLabel string) (*Pool,
 	// have at least as many threads as sessions in the pool to achieve full
 	// throughput.
 	if runtime.GOMAXPROCS(0) < n {
-		runtime.GOMAXPROCS(n)
+		return fmt.Errorf("pkcs11key.NewPool: GOMAXPROCS (%d) is lower than number of "+
+			"requested sessions (%d). Increase GOMAXPROCS or decrease the number "+
+			"of sessions.", runtime.GOMAXPROCS(0), n)
 	}
 	var err error
 	signers := make([]*Key, n)
@@ -100,7 +102,7 @@ func (p *Pool) Destroy() error {
 	for i := 0; i < p.totalCount; i++ {
 		err := p.get().Destroy()
 		if err != nil {
-			return fmt.Errorf("destroy error: %s", err)
+			return fmt.Errorf("pkcs11key: destroy error: %s", err)
 		}
 	}
 	return nil
