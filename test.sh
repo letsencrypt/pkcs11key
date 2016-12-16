@@ -21,7 +21,7 @@ softhsm --slot ${SLOT} --import testdata/silly_signer.key --label silly_signer_k
 
 go test github.com/letsencrypt/pkcs11key -module /usr/lib/softhsm/libsofthsm.so \
   -pin 1234 -tokenLabel "silly_signer" \
-  -privateKeyLabel silly_signer_key \
+  -cert testdata/silly_signer.pem \
   -test.bench Bench \
   -sessions 10
-rm -r ${DIR}
+#rm -r ${DIR}
