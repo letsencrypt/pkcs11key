@@ -5,6 +5,7 @@
 package pkcs11key
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -195,31 +196,57 @@ func (ps *Key) findObject(template []*pkcs11.Attribute) (pkcs11.ObjectHandle, er
 	return handles[0], nil
 }
 
+// publicKeysEqual determines whether two public keys have the same marshalled
+// bytes as one another
+func publicKeysEqual(a, b interface{}) (bool, error) {
+	if a == nil || b == nil {
+		return false, errors.New("One or more nil arguments to PublicKeysEqual")
+	}
+	aBytes, err := x509.MarshalPKIXPublicKey(a)
+	if err != nil {
+		return false, err
+	}
+	bBytes, err := x509.MarshalPKIXPublicKey(b)
+	if err != nil {
+		return false, err
+	}
+	return bytes.Compare(aBytes, bBytes) == 0, nil
+}
+
 // getPublicKeyID looks up the given public key in the PKCS#11 token, and
 // returns its ID as a []byte, for use in looking up the corresponding private
 // key. It must be called with the ps.sessionMu lock held.
 func (ps *Key) getPublicKeyID(publicKey crypto.PublicKey) ([]byte, error) {
-	marshalledPublicKey, err := x509.MarshalPKIXPublicKey(publicKey)
-	if err != nil {
-		return nil, fmt.Errorf("marshalling public key of type %T: %s", publicKey, err)
-	}
-
 	publicKeyHandle, err := ps.findObject([]*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
-		pkcs11.NewAttribute(pkcs11.CKA_VALUE, marshalledPublicKey),
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_CERTIFICATE),
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	attrs, err := ps.module.GetAttributeValue(*ps.session, publicKeyHandle, []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_ID, nil),
+		pkcs11.NewAttribute(pkcs11.CKA_VALUE, nil),
 	})
 	if err != nil {
 		return nil, err
 	}
-	if len(attrs) > 0 && attrs[0].Type == pkcs11.CKA_ID {
-		return attrs[0].Value, nil
+	if len(attrs) == 0 {
+		return nil, fmt.Errorf("getting certificate: no results")
+	}
+	if attrs[0].Type == pkcs11.CKA_VALUE {
+		return nil, fmt.Errorf("getting certificate: wrong type")
+	}
+
+	cert, err := x509.ParseCertificate(attrs[0].Value)
+	if err != nil {
+		return nil, fmt.Errorf("parsing certificate: %s", err)
+	}
+	equal, err := publicKeysEqual(publicKey, cert.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+	if !equal {
+		return nil, fmt.Errorf("getting certificate: public key didn't match")
 	}
 	return nil, fmt.Errorf("invalid result from GetAttributeValue")
 }
