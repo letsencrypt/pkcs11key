@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"fmt"
 	"io"
+	"runtime"
 	"sync"
 )
 
@@ -65,6 +66,14 @@ func (p *Pool) Public() crypto.PublicKey {
 
 // NewPool creates a pool of Keys of size n.
 func NewPool(n int, modulePath, tokenLabel, pin string, publicKey crypto.PublicKey) (*Pool, error) {
+	// Some modules may block their thread during operations, so it's important to
+	// have at least as many threads as sessions in the pool to achieve full
+	// throughput.
+	if runtime.GOMAXPROCS(0) < n {
+		return nil, fmt.Errorf("pkcs11key.NewPool: GOMAXPROCS (%d) is lower than number of "+
+			"requested sessions (%d). Increase GOMAXPROCS or decrease the number "+
+			"of sessions.", runtime.GOMAXPROCS(0), n)
+	}
 	var err error
 	signers := make([]*Key, n)
 	for i := 0; i < n; i++ {
