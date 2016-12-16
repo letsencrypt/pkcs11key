@@ -102,7 +102,7 @@ func (p *Pool) Destroy() error {
 	for i := 0; i < p.totalCount; i++ {
 		err := p.get().Destroy()
 		if err != nil {
-			return fmt.Errorf("pkcs11key: destroy error: %s", err)
+			return fmt.Errorf("pkcs11key: destroy: %s", err)
 		}
 	}
 	return nil
