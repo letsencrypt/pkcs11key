@@ -342,7 +342,7 @@ func TestEcKeyErrors(t *testing.T) {
 	if err == nil {
 		t.Errorf("Unexpected success")
 	}
-	if !strings.EqualFold(err.Error(), "public key not found") {
+	if !strings.EqualFold(err.Error(), "getting public key: not found") {
 		t.Errorf("Unexpected error value: %v", err)
 	}
 
@@ -351,7 +351,7 @@ func TestEcKeyErrors(t *testing.T) {
 	if err == nil {
 		t.Errorf("Unexpected success")
 	}
-	if !strings.EqualFold(err.Error(), "invalid EC Point") {
+	if !strings.EqualFold(err.Error(), "getting public key: invalid EC Point") {
 		t.Errorf("Unexpected error value: %v", err)
 	}
 }
