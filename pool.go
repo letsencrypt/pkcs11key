@@ -70,7 +70,7 @@ func NewPool(n int, modulePath, tokenLabel, pin, privateKeyLabel string) (*Pool,
 	// have at least as many threads as sessions in the pool to achieve full
 	// throughput.
 	if runtime.GOMAXPROCS(0) < n {
-		return fmt.Errorf("pkcs11key.NewPool: GOMAXPROCS (%d) is lower than number of "+
+		return nil, fmt.Errorf("pkcs11key.NewPool: GOMAXPROCS (%d) is lower than number of "+
 			"requested sessions (%d). Increase GOMAXPROCS or decrease the number "+
 			"of sessions.", runtime.GOMAXPROCS(0), n)
 	}
