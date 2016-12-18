@@ -53,6 +53,13 @@ func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
 	return nil
 }
 
+var curveOIDs = map[string]asn1.ObjectIdentifier{
+	"P-224": oidNamedCurveP224,
+	"P-256": oidNamedCurveP256,
+	"P-384": oidNamedCurveP384,
+	"P-521": oidNamedCurveP521,
+}
+
 // ctx defines the subset of pkcs11.ctx's methods that we use, so we can inject
 // a different ctx for testing.
 type ctx interface {
@@ -213,10 +220,23 @@ func (ps *Key) getPublicKeyID(publicKey crypto.PublicKey) ([]byte, error) {
 		// PKCS#11 v2.20 specified that the CKA_EC_POINT was to be store in a DER-encoded
 		// OCTET STRING.
 		marshalled := elliptic.Marshal(key.Curve, key.X, key.Y)
+		rawValue := asn1.RawValue{
+			Tag:   asn1.TagOctetString,
+			Bytes: marshalled,
+		}
+		marshalledPoint, err := asn1.Marshal(rawValue)
+		if err != nil {
+			return nil, err
+		}
+		oid, err := asn1.Marshal(curveOIDs[key.Curve.Params().Name])
+		if err != nil {
+			return nil, err
+		}
 		template = []*pkcs11.Attribute{
 			pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
 			pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
-			pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, marshalled),
+			pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, oid),
+			pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, marshalledPoint),
 		}
 	default:
 		return nil, fmt.Errorf("unsupported public key of type %T", publicKey)
