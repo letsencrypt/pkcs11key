@@ -3,7 +3,7 @@ language: go
 addons:
   apt:
     packages:
-      - softhsm
+      - softhsm2
 
 go:
   - 1.5

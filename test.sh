@@ -13,15 +13,25 @@ if [ -r /proc/brcm_monitor0 ]; then
 fi
 
 DIR=$(mktemp -d -t softhXXXX)
-export SOFTHSM_CONF=${DIR}/softhsm.conf
-SLOT=0
-echo ${SLOT}:${DIR}/softhsm-slot0.db > ${SOFTHSM_CONF}
-softhsm --slot ${SLOT} --init-token --label silly_signer --pin 1234 --so-pin 5678
-softhsm --slot ${SLOT} --import testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
+export SOFTHSM2_CONF=${DIR}/softhsm.conf
+echo directories.tokendir = ${DIR} > ${SOFTHSM2_CONF}
+softhsm2-util --slot 0 --init-token --label silly_signer --pin 1234 --so-pin 5678
+softhsm2-util --slot 0 --import testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
+softhsm2-util --slot 0 --init-token --label entropic_ecdsa --pin 1234 --so-pin 5678
+softhsm2-util --slot 0 --import testdata/entropic_ecdsa.key --label entropic_ecdsa_key --pin 1234 --id C0FFEE
 
-go test github.com/letsencrypt/pkcs11key -module /usr/lib/softhsm/libsofthsm.so \
+MODULE=/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so
+
+go test github.com/letsencrypt/pkcs11key -module ${MODULE} \
   -pin 1234 -tokenLabel "silly_signer" \
   -cert testdata/silly_signer.pem \
   -test.bench Bench \
-  -sessions 10
+  -sessions 2
+
+go test github.com/letsencrypt/pkcs11key -module ${MODULE} \
+  -pin 1234 -tokenLabel "entropic_ecdsa" \
+  -cert testdata/entropic_ecdsa.pem \
+  -test.bench Bench \
+  -sessions 2
+
 #rm -r ${DIR}
