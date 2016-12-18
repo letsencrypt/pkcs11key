@@ -24,7 +24,6 @@ const sessionHandle = pkcs11.SessionHandle(17)
 // marshalled copy so we can return the relevent items from the mocked pkcs11
 // module.
 var rsaKey = &rsa.PublicKey{N: big.NewInt(1), E: 1}
-var rsaMarshalled = "0\x1a0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x01\x05\x00\x03\t\x000\x06\x02\x01\x01\x02\x01\x01"
 
 const rsaPrivateKeyHandle = pkcs11.ObjectHandle(23)
 const rsaPublicKeyHandle = pkcs11.ObjectHandle(24)
@@ -32,7 +31,7 @@ const rsaKeyID = byte(0x04)
 
 // A fake EC public key for use in testing. See RSA above.
 var ecKey = &ecdsa.PublicKey{X: big.NewInt(1), Y: big.NewInt(1), Curve: elliptic.P256()}
-var ecMarshalled = "0Y0\x13\x06\a*\x86H\xce=\x02\x01\x06\b*\x86H\xce=\x03\x01\a\x03B\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01"
+var marshalledECPoint = elliptic.Marshal(ecKey.Curve, ecKey.X, ecKey.Y)
 
 const ecPrivateKeyHandle = pkcs11.ObjectHandle(32)
 const ecPublicKeyHandle = pkcs11.ObjectHandle(33)
@@ -58,32 +57,33 @@ func (c *mockCtx) FindObjectsInit(sh pkcs11.SessionHandle, temp []*pkcs11.Attrib
 }
 
 func (c *mockCtx) FindObjects(sh pkcs11.SessionHandle, max int) ([]pkcs11.ObjectHandle, bool, error) {
-	var class uint
-	for _, a := range c.currentSearch {
-		// Hack: we know the relevant classes are all expressible in single bytes.
-		if a.Type == pkcs11.CKA_CLASS {
-			class = uint(a.Value[0])
-		}
-		// We search public keys by CKA_CLASS and CKA_VALUE.
-		// Note that this mock is sensitive to the particular order
-		// in which the attributes are specified in the call to FindObjects.
-		if a.Type == pkcs11.CKA_VALUE && class == pkcs11.CKO_PUBLIC_KEY {
-			switch string(a.Value) {
-			case rsaMarshalled:
-				return []pkcs11.ObjectHandle{rsaPublicKeyHandle}, false, nil
-			case ecMarshalled:
-				return []pkcs11.ObjectHandle{ecPublicKeyHandle}, false, nil
-			}
-		}
-		// We search private keys using CKA_CLASS and CKA_ID
-		if a.Type == pkcs11.CKA_ID && class == pkcs11.CKO_PRIVATE_KEY {
-			switch string(a.Value) {
-			case string([]byte{rsaKeyID}):
-				return []pkcs11.ObjectHandle{rsaPrivateKeyHandle}, false, nil
-			case string([]byte{ecKeyID}):
-				return []pkcs11.ObjectHandle{ecPrivateKeyHandle}, false, nil
-			}
-		}
+	if reflect.DeepEqual(c.currentSearch, []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_RSA),
+		pkcs11.NewAttribute(pkcs11.CKA_MODULUS, rsaKey.N.Bytes()),
+		pkcs11.NewAttribute(pkcs11.CKA_PUBLIC_EXPONENT, big.NewInt(int64(rsaKey.E)).Bytes()),
+	}) {
+		return []pkcs11.ObjectHandle{rsaPublicKeyHandle}, false, nil
+	}
+	if reflect.DeepEqual(c.currentSearch, []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
+		pkcs11.NewAttribute(pkcs11.CKA_ID, []byte{rsaKeyID}),
+	}) {
+		return []pkcs11.ObjectHandle{rsaPrivateKeyHandle}, false, nil
+	}
+
+	if reflect.DeepEqual(c.currentSearch, []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
+		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, marshalledECPoint),
+	}) {
+		return []pkcs11.ObjectHandle{ecPublicKeyHandle}, false, nil
+	}
+	if reflect.DeepEqual(c.currentSearch, []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
+		pkcs11.NewAttribute(pkcs11.CKA_ID, []byte{ecKeyID}),
+	}) {
+		return []pkcs11.ObjectHandle{ecPrivateKeyHandle}, false, nil
 	}
 	return nil, false, nil
 }
