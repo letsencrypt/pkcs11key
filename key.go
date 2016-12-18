@@ -39,20 +39,6 @@ var (
 	oidNamedCurveP521 = asn1.ObjectIdentifier{1, 3, 132, 0, 35}
 )
 
-func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
-	switch {
-	case oid.Equal(oidNamedCurveP224):
-		return elliptic.P224()
-	case oid.Equal(oidNamedCurveP256):
-		return elliptic.P256()
-	case oid.Equal(oidNamedCurveP384):
-		return elliptic.P384()
-	case oid.Equal(oidNamedCurveP521):
-		return elliptic.P521()
-	}
-	return nil
-}
-
 var curveOIDs = map[string]asn1.ObjectIdentifier{
 	"P-224": oidNamedCurveP224,
 	"P-256": oidNamedCurveP256,
@@ -180,7 +166,7 @@ func New(modulePath, tokenLabel, pin string, publicKey crypto.PublicKey) (*Key, 
 }
 
 // findObject finds an object in the PKCS#11 token according to a template. It
-// returns error if there are more than one result, or if there was an error
+// returns error if there is more than one result, or if there was an error
 // during the find calls. It must be called with the ps.sessionMu lock held.
 func (ps *Key) findObject(template []*pkcs11.Attribute) (pkcs11.ObjectHandle, error) {
 	if err := ps.module.FindObjectsInit(*ps.session, template); err != nil {
