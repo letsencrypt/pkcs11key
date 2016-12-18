@@ -18,7 +18,7 @@ var module = flag.String("module", "", "Path to PKCS11 module")
 var tokenLabel = flag.String("tokenLabel", "", "Token label")
 var pin = flag.String("pin", "", "PIN")
 var privateKeyLabel = flag.String("privateKeyLabel", "", "Private key label")
-var cert = flag.String("cert", "", "Certificate to sign with (PEM)")
+var certFile = flag.String("cert", "", "Certificate to sign with (PEM)")
 var sessionCount = flag.Int("sessions", runtime.GOMAXPROCS(-1), `Number of PKCS#11 sessions to use.
 For SoftHSM, GOMAXPROCS is appropriate, but for an external HSM the optimum session count depends on the HSM's parallelism.`)
 
@@ -40,18 +40,18 @@ func readCert(certContents []byte) (*x509.Certificate, error) {
 // You can adjust benchtime if you want to run for longer or shorter, and change
 // the number of CPUs to select the parallelism you want.
 func BenchmarkPKCS11(b *testing.B) {
-	if *module == "" || *tokenLabel == "" || *pin == "" || *cert == "" {
+	if *module == "" || *tokenLabel == "" || *pin == "" || *certFile == "" {
 		b.Fatal("Must pass all flags: module, tokenLabel, pin, and cert")
 		return
 	}
 
-	certContents, err := ioutil.ReadFile(*cert)
+	certContents, err := ioutil.ReadFile(*certFile)
 	if err != nil {
-		b.Fatalf("failed to read %s: %s", *cert, err)
+		b.Fatalf("failed to read %s: %s", *certFile, err)
 	}
 	cert, err := readCert(certContents)
 	if err != nil {
-		b.Fatalf("failed to parse %s: %s", *cert, err)
+		b.Fatalf("failed to parse %s: %s", *certFile, err)
 	}
 
 	// A minimal, bogus certificate to be signed.
