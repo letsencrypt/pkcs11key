@@ -32,7 +32,6 @@ const rsaKeyID = byte(0x04)
 
 // A fake EC public key for use in testing. See RSA above.
 var ecKey = &ecdsa.PublicKey{X: big.NewInt(1), Y: big.NewInt(1), Curve: elliptic.P256()}
-var marshalledECPoint = elliptic.Marshal(ecKey.Curve, ecKey.X, ecKey.Y)
 
 const ecPrivateKeyHandle = pkcs11.ObjectHandle(32)
 const ecPublicKeyHandle = pkcs11.ObjectHandle(33)
