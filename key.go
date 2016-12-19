@@ -207,7 +207,7 @@ func (ps *Key) getPublicKeyID(publicKey crypto.PublicKey) ([]byte, error) {
 		// OCTET STRING.
 		marshalled := elliptic.Marshal(key.Curve, key.X, key.Y)
 		rawValue := asn1.RawValue{
-			Tag:   asn1.TagOctetString,
+			Tag:   4, // in Go 1.6+ this is asn1.TagOctetString
 			Bytes: marshalled,
 		}
 		marshalledPoint, err := asn1.Marshal(rawValue)
