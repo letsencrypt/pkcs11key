@@ -1,5 +1,10 @@
 language: go
 
+addons:
+  apt:
+    packages:
+      - softhsm
+
 go:
   - 1.5
   - 1.6
@@ -7,3 +12,6 @@ go:
 env:
   global:
     - GODEBUG=cgocheck=2
+
+script:
+  - ./test.sh
