@@ -35,6 +35,7 @@ if $(type softhsm2-util 2>/dev/null >&2) ; then
   softhsm2-util --module ${MODULE} --slot 0 --import testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
   softhsm2-util --module ${MODULE} --slot 1 --init-token --label entropic_ecdsa --pin 1234 --so-pin 1234
   softhsm2-util --module ${MODULE} --slot 1 --import testdata/entropic_ecdsa.key --label entropic_ecdsa_key --pin 1234 --id C0FFEE
+  ls ${DIR}
 else
   MODULE=${MODULE:-/usr/lib/libsofthsm.so}
   export SOFTHSM_CONF=${DIR}/softhsm.conf

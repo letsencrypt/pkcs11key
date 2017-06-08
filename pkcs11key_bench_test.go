@@ -17,7 +17,6 @@ import (
 var module = flag.String("module", "", "Path to PKCS11 module")
 var tokenLabel = flag.String("tokenLabel", "", "Token label")
 var pin = flag.String("pin", "", "PIN")
-var privateKeyLabel = flag.String("privateKeyLabel", "", "Private key label")
 var certFile = flag.String("cert", "", "Certificate to sign with (PEM)")
 var sessionCount = flag.Int("sessions", runtime.GOMAXPROCS(-1), `Number of PKCS#11 sessions to use.
 For SoftHSM, GOMAXPROCS is appropriate, but for an external HSM the optimum session count depends on the HSM's parallelism.`)
