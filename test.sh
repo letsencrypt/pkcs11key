@@ -25,7 +25,7 @@ DIR=$(mktemp -d -t softhXXXX)
 
 # Travis doesn't currently offer softhsm2 (it's not in Ubuntu Trusty), so we run
 # softhsm2 if it's available (e.g., locally), and softhsm otherwise (e.g. in
-# Travis). ECDSA is only supported in SoftHSMv3 so we skip the ECDSA benchmark
+# Travis). ECDSA is only supported in SoftHSMv2 so we skip the ECDSA benchmark
 # when it's not available.
 if $(type softhsm2-util 2>/dev/null >&2) ; then
   MODULE=${MODULE:-/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so}
