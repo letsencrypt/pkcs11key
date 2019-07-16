@@ -36,7 +36,7 @@ if $(type softhsm2-util 2>/dev/null >&2) ; then
   softhsm2-util --module ${MODULE} --slot 1 --init-token --label entropic_ecdsa --pin 1234 --so-pin 1234
   softhsm2-util --module ${MODULE} --slot 1 --import testdata/entropic_ecdsa.key --label entropic_ecdsa_key --pin 1234 --id C0FFEE
 else
-  MODULE=${MODULE:-/usr/lib/libsofthsm.so}
+  MODULE=${MODULE:-/usr/lib/softhsm/libsofthsm.so}
   export SOFTHSM_CONF=${DIR}/softhsm.conf
   SLOT=0
   echo ${SLOT}:${DIR}/softhsm-slot${SLOT}.db > ${SOFTHSM_CONF}
