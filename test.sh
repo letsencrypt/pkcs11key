@@ -25,30 +25,30 @@ DIR=$(mktemp -d -t softhXXXX)
 
 # Travis doesn't currently offer softhsm2 (it's not in Ubuntu Trusty), so we run
 # softhsm2 if it's available (e.g., locally), and softhsm otherwise (e.g. in
-# Travis). ECDSA is only supported in SoftHSMv2 so we skip the ECDSA benchmark
+# Travis). ECDSA is only supported in SoftHSMv3 so we skip the ECDSA benchmark
 # when it's not available.
 if $(type softhsm2-util 2>/dev/null >&2) ; then
   MODULE=${MODULE:-/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so}
   export SOFTHSM2_CONF=${DIR}/softhsm.conf
   echo directories.tokendir = ${DIR} > ${SOFTHSM2_CONF}
   softhsm2-util --module ${MODULE} --slot 0 --init-token --label silly_signer --pin 1234 --so-pin 1234
-  softhsm2-util --module ${MODULE} --slot 0 --import v2/testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
+  softhsm2-util --module ${MODULE} --slot 0 --import v3/testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
   softhsm2-util --module ${MODULE} --slot 1 --init-token --label entropic_ecdsa --pin 1234 --so-pin 1234
-  softhsm2-util --module ${MODULE} --slot 1 --import v2/testdata/entropic_ecdsa.key --label entropic_ecdsa_key --pin 1234 --id C0FFEE
+  softhsm2-util --module ${MODULE} --slot 1 --import v3/testdata/entropic_ecdsa.key --label entropic_ecdsa_key --pin 1234 --id C0FFEE
 else
   MODULE=${MODULE:-/usr/lib/softhsm/libsofthsm.so}
   export SOFTHSM_CONF=${DIR}/softhsm.conf
   SLOT=0
   echo ${SLOT}:${DIR}/softhsm-slot${SLOT}.db > ${SOFTHSM_CONF}
   softhsm --module ${MODULE} --slot ${SLOT} --init-token --label silly_signer --pin 1234 --so-pin 1234
-  softhsm --module ${MODULE} --slot ${SLOT} --import v2/testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
+  softhsm --module ${MODULE} --slot ${SLOT} --import v3/testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
 fi
 
-go test github.com/letsencrypt/pkcs11key/v2
+go test github.com/letsencrypt/pkcs11key/v3
 
 # Run the benchmark. Arguments: $1: token label, $2: certificate filename
 function bench {
-  go test github.com/letsencrypt/pkcs11key/v2 -module ${MODULE} \
+  go test github.com/letsencrypt/pkcs11key/v3 -module ${MODULE} \
     -test.run xxxNONExxx \
     -pin 1234 -tokenLabel ${1} \
     -cert ${2} \
@@ -57,10 +57,10 @@ function bench {
     -sessions ${SESSIONS:-2};
 }
 
-bench silly_signer v2/testdata/silly_signer.pem
+bench silly_signer v3/testdata/silly_signer.pem
 
 if [ -n "${SOFTHSM2_CONF}" ] ; then
-  bench entropic_ecdsa v2/testdata/entropic_ecdsa.pem
+  bench entropic_ecdsa v3/testdata/entropic_ecdsa.pem
 fi
 
 rm -r ${DIR}
