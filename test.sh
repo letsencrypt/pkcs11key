@@ -57,10 +57,10 @@ function bench {
     -sessions ${SESSIONS:-2};
 }
 
-bench silly_signer v3/testdata/silly_signer.pem
+bench silly_signer testdata/silly_signer.pem
 
 if [ -n "${SOFTHSM2_CONF}" ] ; then
-  bench entropic_ecdsa v3/testdata/entropic_ecdsa.pem
+  bench entropic_ecdsa testdata/entropic_ecdsa.pem
 fi
 
 rm -r ${DIR}
