@@ -17,7 +17,6 @@ import (
 var module = flag.String("module", "", "Path to PKCS11 module")
 var tokenLabel = flag.String("tokenLabel", "", "Token label")
 var pin = flag.String("pin", "", "PIN")
-var privateKeyLabel = flag.String("privateKeyLabel", "", "Private key label")
 var certFile = flag.String("cert", "", "Certificate to sign with (PEM)")
 var sessionCount = flag.Int("sessions", runtime.GOMAXPROCS(-1), `Number of PKCS#11 sessions to use.
 For SoftHSM, GOMAXPROCS is appropriate, but for an external HSM the optimum session count depends on the HSM's parallelism.`)
@@ -91,6 +90,26 @@ func BenchmarkPKCS11(b *testing.B) {
 	// Start recording total time. Go's benchmarking code is interested in
 	// nanoseconds per op, but we're also interested in the total throughput.
 	start := time.Now()
+
+	// Note: In high-performance HSMs, we expect there to be multiple cores,
+	// allowing multiple signing operations to be inflight at once - that's what
+	// the sessionCount parameter is for. However, each individual call to
+	// CreateCertificate (which in turn calls pool.Sign) will block until it is
+	// done. For instance, consider an HSM with 32 cores. If the benchmark-running
+	// machine has 4 CPUs and thus GOMAXPROCS=4, b.RunParallel will run 4
+	// goroutines requesting signing, and the benchmark will not reach peak
+	// performance.
+	//
+	// Note that this does not have to do with CGO and the Go scheduler at all. If
+	// a C function blocks for more than 20us (signatures take roughly 10ms), the Go
+	// scheduler will spawn an extra thread so other goroutines can keep running.
+	// http://stackoverflow.com/a/28356944/363869
+	//
+	// In practice, this means that code using a Pool should be calling it from at
+	// least as many goroutines as there are entries in the pool. In a typical
+	// HTTP or RPC setting, where each request is handled in its own goroutine,
+	// this will not be a problem.
+	b.SetParallelism(*sessionCount)
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {

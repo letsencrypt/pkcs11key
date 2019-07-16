@@ -1,5 +1,4 @@
-// Package pkcs11key implements crypto.Signer for PKCS #11 private
-// keys. Currently, only RSA keys are supported.
+// Package pkcs11key implements crypto.Signer for PKCS #11 private keys.
 // See ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-11/v2-30/pkcs-11v2-30b-d6.pdf for
 // details of the Cryptoki PKCS#11 API.
 package pkcs11key
