@@ -44,11 +44,11 @@ else
   softhsm --module ${MODULE} --slot ${SLOT} --import testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
 fi
 
-go test github.com/letsencrypt/pkcs11key
+go test github.com/letsencrypt/pkcs11key/v2
 
 # Run the benchmark. Arguments: $1: token label, $2: certificate filename
 function bench {
-  go test github.com/letsencrypt/pkcs11key -module ${MODULE} \
+  go test github.com/letsencrypt/pkcs11key/v2 -module ${MODULE} \
     -test.run xxxNONExxx \
     -pin 1234 -tokenLabel ${1} \
     -cert ${2} \
