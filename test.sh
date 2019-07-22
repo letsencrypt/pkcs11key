@@ -32,23 +32,23 @@ if $(type softhsm2-util 2>/dev/null >&2) ; then
   export SOFTHSM2_CONF=${DIR}/softhsm.conf
   echo directories.tokendir = ${DIR} > ${SOFTHSM2_CONF}
   softhsm2-util --module ${MODULE} --slot 0 --init-token --label silly_signer --pin 1234 --so-pin 1234
-  softhsm2-util --module ${MODULE} --slot 0 --import testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
+  softhsm2-util --module ${MODULE} --slot 0 --import v3/testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
   softhsm2-util --module ${MODULE} --slot 1 --init-token --label entropic_ecdsa --pin 1234 --so-pin 1234
-  softhsm2-util --module ${MODULE} --slot 1 --import testdata/entropic_ecdsa.key --label entropic_ecdsa_key --pin 1234 --id C0FFEE
+  softhsm2-util --module ${MODULE} --slot 1 --import v3/testdata/entropic_ecdsa.key --label entropic_ecdsa_key --pin 1234 --id C0FFEE
 else
-  MODULE=${MODULE:-/usr/lib/libsofthsm.so}
+  MODULE=${MODULE:-/usr/lib/softhsm/libsofthsm.so}
   export SOFTHSM_CONF=${DIR}/softhsm.conf
   SLOT=0
   echo ${SLOT}:${DIR}/softhsm-slot${SLOT}.db > ${SOFTHSM_CONF}
   softhsm --module ${MODULE} --slot ${SLOT} --init-token --label silly_signer --pin 1234 --so-pin 1234
-  softhsm --module ${MODULE} --slot ${SLOT} --import testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
+  softhsm --module ${MODULE} --slot ${SLOT} --import v3/testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
 fi
 
-go test github.com/letsencrypt/pkcs11key
+go test github.com/letsencrypt/pkcs11key/v3
 
 # Run the benchmark. Arguments: $1: token label, $2: certificate filename
 function bench {
-  go test github.com/letsencrypt/pkcs11key -module ${MODULE} \
+  go test github.com/letsencrypt/pkcs11key/v3 -module ${MODULE} \
     -test.run xxxNONExxx \
     -pin 1234 -tokenLabel ${1} \
     -cert ${2} \

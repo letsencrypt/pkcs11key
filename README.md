@@ -3,6 +3,9 @@ PKCS11Key
 
 The pkcs11key package implements a crypto.Signer interface for a PKCS#11 private key.
 
+If you are using Go modules, you should import this with the module-compatible
+path github.com/letsencrypt/pkcs11key/v3
+
 [![Build Status](https://travis-ci.org/letsencrypt/pkcs11key.svg)](https://travis-ci.org/letsencrypt/pkcs11key)
 
 ## License summary
