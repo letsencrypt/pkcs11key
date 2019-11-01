@@ -19,7 +19,7 @@ import (
 )
 
 // from src/pkg/crypto/rsa/pkcs1v15.go
-var hashPrefixes = map[crypto.Hash][]byte{
+var hashPKCS1Prefixes = map[crypto.Hash][]byte{
 	crypto.MD5:       {0x30, 0x20, 0x30, 0x0c, 0x06, 0x08, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x02, 0x05, 0x05, 0x00, 0x04, 0x10},
 	crypto.SHA1:      {0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14},
 	crypto.SHA224:    {0x30, 0x2d, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x04, 0x05, 0x00, 0x04, 0x1c},
@@ -28,6 +28,19 @@ var hashPrefixes = map[crypto.Hash][]byte{
 	crypto.SHA512:    {0x30, 0x51, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03, 0x05, 0x00, 0x04, 0x40},
 	crypto.MD5SHA1:   {}, // A special TLS case which doesn't use an ASN1 prefix.
 	crypto.RIPEMD160: {0x30, 0x20, 0x30, 0x08, 0x06, 0x06, 0x28, 0xcf, 0x06, 0x03, 0x00, 0x31, 0x04, 0x14},
+}
+
+type pssParams struct {
+	ckmHash uint // CKM constant for hash function
+	ckgMGF  uint // CKG constant for mask generation function
+}
+
+var hashPSSParams = map[crypto.Hash]pssParams{
+	crypto.SHA1:   {pkcs11.CKM_SHA_1, pkcs11.CKG_MGF1_SHA1},
+	crypto.SHA224: {pkcs11.CKM_SHA224, pkcs11.CKG_MGF1_SHA224},
+	crypto.SHA256: {pkcs11.CKM_SHA256, pkcs11.CKG_MGF1_SHA256},
+	crypto.SHA384: {pkcs11.CKM_SHA384, pkcs11.CKG_MGF1_SHA384},
+	crypto.SHA512: {pkcs11.CKM_SHA512, pkcs11.CKG_MGF1_SHA512},
 }
 
 // from src/pkg/crypto/x509/x509.go
@@ -412,13 +425,19 @@ func (ps *Key) Sign(rand io.Reader, msg []byte, opts crypto.SignerOpts) (signatu
 
 	switch ps.publicKey.(type) {
 	case *rsa.PublicKey:
-		mechanism = []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_RSA_PKCS, nil)}
-		prefix, ok := hashPrefixes[hash]
-		if !ok {
-			err = errors.New("pkcs11key: unknown hash function")
+		if pssOpts, ok := opts.(*rsa.PSSOptions); ok {
+			// Signing with RSA-PSS
+			mechanism, err = rsaPSSMechanism(hash, pssOpts.SaltLength)
+			signatureInput = msg
+		} else {
+			// Signing with RSA-PKCS1v1.5
+			var prefix []byte
+			mechanism, prefix, err = rsaPKCS1Mechanism(hash)
+			signatureInput = append(prefix, msg...)
+		}
+		if err != nil {
 			return
 		}
-		signatureInput = append(prefix, msg...)
 	case *ecdsa.PublicKey:
 		mechanism = []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}
 		signatureInput = msg
@@ -436,5 +455,31 @@ func (ps *Key) Sign(rand io.Reader, msg []byte, opts crypto.SignerOpts) (signatu
 	if err != nil {
 		return nil, fmt.Errorf("pkcs11key: sign: %s", err)
 	}
+	return
+}
+
+func rsaPSSMechanism(hash crypto.Hash, saltLength int) (mechanism []*pkcs11.Mechanism, err error) {
+	params, ok := hashPSSParams[hash]
+	if !ok {
+		err = errors.New("pkcs11key: unknown hash function")
+		return
+	}
+
+	if saltLength == rsa.PSSSaltLengthAuto || saltLength == rsa.PSSSaltLengthEqualsHash {
+		saltLength = hash.Size()
+	}
+	pssParams := pkcs11.NewPSSParams(params.ckmHash, params.ckgMGF, uint(saltLength))
+
+	return []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_RSA_PKCS_PSS, pssParams)}, nil
+}
+
+func rsaPKCS1Mechanism(hash crypto.Hash) (mechanism []*pkcs11.Mechanism, prefix []byte, err error) {
+	prefix, ok := hashPKCS1Prefixes[hash]
+	if !ok {
+		err = errors.New("pkcs11key: unknown hash function")
+		return
+	}
+
+	mechanism = []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_RSA_PKCS, nil)}
 	return
 }
