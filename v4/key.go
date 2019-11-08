@@ -58,6 +58,10 @@ var curveOIDs = map[string]asn1.ObjectIdentifier{
 	"P-521": oidNamedCurveP521,
 }
 
+type rfc5480ECDSASignature struct {
+	R, S *big.Int
+}
+
 // ctx defines the subset of pkcs11.ctx's methods that we use, so we can inject
 // a different ctx for testing.
 type ctx interface {
@@ -422,6 +426,7 @@ func (ps *Key) Sign(rand io.Reader, msg []byte, opts crypto.SignerOpts) (signatu
 	// Add DigestInfo prefix
 	var mechanism []*pkcs11.Mechanism
 	var signatureInput []byte
+	var isECDSA bool
 
 	switch ps.publicKey.(type) {
 	case *rsa.PublicKey:
@@ -439,6 +444,7 @@ func (ps *Key) Sign(rand io.Reader, msg []byte, opts crypto.SignerOpts) (signatu
 			return
 		}
 	case *ecdsa.PublicKey:
+		isECDSA = true
 		mechanism = []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}
 		signatureInput = msg
 	default:
@@ -455,6 +461,19 @@ func (ps *Key) Sign(rand io.Reader, msg []byte, opts crypto.SignerOpts) (signatu
 	if err != nil {
 		return nil, fmt.Errorf("pkcs11key: sign: %s", err)
 	}
+
+	// PKCS#11 defines its own signature format for ECDSA signatures,
+	// one octet string of even length, containing the r and s values
+	// concatenated together. But RFC 5480 defines a different format,
+	// an ECDSA signature is a SEQUENCE of two INTEGERs. Per the docs,
+	// the crypto.Signer output should match RFC 5480.
+	if isECDSA {
+		signature, err = ecdsaPKCS11ToRFC5480(signature)
+		if err != nil {
+			return nil, fmt.Errorf("pkcs11key: sign: %s", err)
+		}
+	}
+
 	return
 }
 
@@ -482,4 +501,16 @@ func rsaPKCS1Mechanism(hash crypto.Hash) (mechanism []*pkcs11.Mechanism, prefix 
 
 	mechanism = []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_RSA_PKCS, nil)}
 	return
+}
+
+func ecdsaPKCS11ToRFC5480(pkcs11Signature []byte) (rfc5480Signature []byte, err error) {
+	mid := len(pkcs11Signature) / 2
+
+	r := &big.Int{}
+	s := &big.Int{}
+
+	return asn1.Marshal(rfc5480ECDSASignature{
+		R: r.SetBytes(pkcs11Signature[:mid]),
+		S: s.SetBytes(pkcs11Signature[mid:]),
+	})
 }
