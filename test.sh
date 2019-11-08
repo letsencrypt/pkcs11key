@@ -56,7 +56,7 @@ go test github.com/letsencrypt/pkcs11key/v4
 
 # Run the benchmark. Arguments: $1: token label, $2: certificate filename
 function bench {
-  go test github.com/letsencrypt/pkcs11key/v4
+  go test github.com/letsencrypt/pkcs11key/v4 \
     -module ${MODULE} \
     -test.run xxxNONExxx \
     -pin 1234 \
