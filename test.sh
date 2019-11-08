@@ -10,6 +10,14 @@
 # export MODULE=/usr/local/lib/libpkcs11-proxy.so PKCS11_PROXY_SOCKET=tcp://hsm.example.com:5657
 # bash test.sh
 #
+# To test with a YubiKey 4:
+#
+# ykman piv generate-key --algorithm ECCP256 9a pubkey.pem
+# ykman piv generate-certificate --pin 123456 --subject "yubico" 9a pubkey.pem
+# ykman piv export-certificate 9a cert.pem
+# go test -bench=. -module /usr/lib/x86_64-linux-gnu/opensc-pkcs11.so \
+#   -pin 123456 -cert cert.pem -tokenLabel yubico
+#
 # You can also override the number of sessions by setting the SESSIONS variable.
 
 if [ -r /proc/brcm_monitor0 ]; then
@@ -48,9 +56,11 @@ go test github.com/letsencrypt/pkcs11key/v4
 
 # Run the benchmark. Arguments: $1: token label, $2: certificate filename
 function bench {
-  go test github.com/letsencrypt/pkcs11key/v4 -module ${MODULE} \
+  go test github.com/letsencrypt/pkcs11key/v4
+    -module ${MODULE} \
     -test.run xxxNONExxx \
-    -pin 1234 -tokenLabel ${1} \
+    -pin 1234 \
+    -tokenLabel ${1} \
     -cert ${2} \
     -test.bench Bench \
     -benchtime 10s \

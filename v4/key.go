@@ -1,6 +1,8 @@
 // Package pkcs11key implements crypto.Signer for PKCS #11 private keys.
-// See ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-11/v2-30/pkcs-11v2-30b-d6.pdf for
-// details of the Cryptoki PKCS#11 API.
+// See https://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/pkcs11-base-v2.40.pdf
+// for details of the Cryptoki PKCS#11 API.
+// See https://github.com/letsencrypt/pkcs11key/blob/master/test.sh for examples
+// of how to test and/or benchmark.
 package pkcs11key
 
 import (
