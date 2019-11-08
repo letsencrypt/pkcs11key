@@ -398,9 +398,9 @@ func (ps *Key) Sign(rand io.Reader, msg []byte, opts crypto.SignerOpts) (signatu
 		return nil, errors.New("pkcs11key: session was nil")
 	}
 
-	// When the alwaysAuthenticate bit is true (e.g. on a Yubikey NEO in PIV mode),
+	// When the alwaysAuthenticate bit is true (e.g. on a YubiKey in PIV mode),
 	// each Sign has to include a Logout/Login, or the next Sign request will get
-	// CKR_USER_NOT_LOGGED_IN. This is very slow, but on the NEO it's not possible
+	// CKR_USER_NOT_LOGGED_IN. This is very slow, but on the YubiKey it's not possible
 	// to clear the CKA_ALWAYS_AUTHENTICATE bit, so this is the only available
 	// workaround.
 	// Also, since logged in / logged out is application state rather than session
