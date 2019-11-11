@@ -7,7 +7,10 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/asn1"
+	"encoding/binary"
 	"fmt"
+	"math"
 	"math/big"
 	"reflect"
 	"testing"
@@ -205,11 +208,11 @@ func setup(t *testing.T, pubKey crypto.PublicKey) *Key {
 
 var signInput = []byte("1234567890 1234567890 1234567890")
 
-func sign(t *testing.T, ps *Key) []byte {
+func sign(t *testing.T, ps *Key, opts crypto.SignerOpts) []byte {
 	// Sign input must be exactly 32 bytes to match SHA256 size. In normally
 	// usage, Sign would be called by e.g. x509.CreateCertificate, which would
 	// handle padding to the necessary size.
-	output, err := ps.Sign(rand.Reader, signInput, crypto.SHA256)
+	output, err := ps.Sign(rand.Reader, signInput, opts)
 	if err != nil {
 		t.Fatalf("Failed to sign: %s", err)
 	}
@@ -219,7 +222,9 @@ func sign(t *testing.T, ps *Key) []byte {
 	}
 
 	i := len(output) - len(signInput)
-	if !bytes.Equal(output[i:], signInput) {
+	_, isECDSA := ps.Public().(*ecdsa.PublicKey)
+
+	if !bytes.Equal(output[i:], signInput) && !isECDSA {
 		t.Fatal("Incorrect sign output")
 	}
 	return output
@@ -252,9 +257,23 @@ func TestInitializeKeyNotFound(t *testing.T) {
 	}
 }
 
-func TestSign(t *testing.T) {
+func TestSignECDSA(t *testing.T) {
+	ps := setup(t, ecKey)
+	sig := sign(t, ps, crypto.SHA256)
+
+	expected, err := ecdsaPKCS11ToRFC5480(signInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !(bytes.Equal(expected, sig)) {
+		t.Fatal("ECDSA signature error")
+	}
+}
+
+func TestSignPKCS1(t *testing.T) {
 	ps := setup(t, rsaKey)
-	sig := sign(t, ps)
+	sig := sign(t, ps, crypto.SHA256)
 
 	// Check that the RSA signature starts with the SHA256 hash prefix
 	var sha256Pre = []byte{0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86,
@@ -269,9 +288,15 @@ func TestSign(t *testing.T) {
 	if !ok {
 		t.Errorf("Attempted to get RSA key from Key, got key of type %s. Expected *rsa.PublicKey", reflect.TypeOf(pub))
 	}
+}
 
-	ps = setup(t, ecKey)
-	sig = sign(t, ps)
+func TestSignPSS(t *testing.T) {
+	opts := &rsa.PSSOptions{
+		Hash:       crypto.SHA256,
+		SaltLength: rsa.PSSSaltLengthEqualsHash,
+	}
+	ps := setup(t, rsaKey)
+	sig := sign(t, ps, opts)
 
 	if !(bytes.Equal(signInput, sig)) {
 		t.Fatal("ECDSA signature error")
@@ -303,5 +328,76 @@ func TestAttributeTypeInvalid(t *testing.T) {
 	err := ps.setup()
 	if err != nil {
 		t.Errorf("Failed to set up with a token that returns CKR_ATTRIBUTE_TYPE_INVALID: %s", err)
+	}
+}
+
+func TestRSAPKCS1Params(t *testing.T) {
+	mech, _, err := rsaPKCS1Mechanism(crypto.SHA256)
+	if err != nil {
+		t.Fatalf("Failed to set up mechanism for RSA-PSS: %s", err)
+	}
+
+	if mech[0].Mechanism != pkcs11.CKM_RSA_PKCS {
+		t.Fatalf("Failed to set up mechanism for RSA-PKCS1v1.5, found CKM value mismatch (got: %d)", mech[0].Mechanism)
+	}
+
+	if mech[0].Parameter != nil {
+		t.Fatalf("Failed to set up mechanism for RSA-PKCS1v1.5, found parameter value mismatch (got: %v)", mech[0].Parameter)
+	}
+}
+
+func TestRSAPSSParams(t *testing.T) {
+	mech, err := rsaPSSMechanism(crypto.SHA256, rsa.PSSSaltLengthEqualsHash)
+	if err != nil {
+		t.Fatalf("Failed to set up mechanism for RSA-PSS: %s", err)
+	}
+
+	if mech[0].Mechanism != pkcs11.CKM_RSA_PKCS_PSS {
+		t.Fatalf("Failed to set up mechanism for RSA-PSS, found CKM value mismatch (got: %d)", mech[0].Mechanism)
+	}
+
+	// Make sure params has salt length 32, since we passed "equals hash" as the salt length
+	expected := pkcs11.NewPSSParams(pkcs11.CKM_SHA256, pkcs11.CKG_MGF1_SHA256, 32)
+	if !bytes.Equal(mech[0].Parameter, expected) {
+		t.Fatalf("Failed to set up mechanism for RSA-PSS, found parameter value mismatch (got: %v)", mech[0].Parameter)
+	}
+}
+
+func TestPKCS11ToRFC5480Signature(t *testing.T) {
+	// Build a PKCS#11 signature with r = i and s = i +1, convert it
+	// to RFC 5480 format and check that we got the expected values.
+	roundtrip := func(i uint64) {
+		pkcs11 := make([]byte, 16)
+		rfc5480 := rfc5480ECDSASignature{}
+
+		binary.BigEndian.PutUint64(pkcs11[:8], i)
+		binary.BigEndian.PutUint64(pkcs11[8:], i+1)
+
+		out, err := ecdsaPKCS11ToRFC5480(pkcs11)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		rest, err := asn1.Unmarshal(out, &rfc5480)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(rest) != 0 {
+			t.Fatalf("Conversion from PKCS11 signature to RFC5480 returned extra data? (%d bytes)", len(rest))
+		}
+
+		r := uint64(rfc5480.R.Int64())
+		s := uint64(rfc5480.S.Int64())
+		if r != i {
+			t.Fatalf("Error converting PKCS11 signature to RFC5480, r value mismatch (expected: %d, got: %d)", i, r)
+		}
+		if s != i+1 {
+			t.Fatalf("Error converting PKCS11 signature to RFC5480, s value mismatch (expected: %d, got: %d)", (i + 1), s)
+		}
+	}
+
+	for i := uint64(0); i < ((1 << 16) - 1); i++ {
+		roundtrip(i)
+		roundtrip(math.MaxUint64 - i - 1)
 	}
 }
