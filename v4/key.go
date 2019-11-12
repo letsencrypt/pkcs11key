@@ -1,6 +1,8 @@
 // Package pkcs11key implements crypto.Signer for PKCS #11 private keys.
-// See ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-11/v2-30/pkcs-11v2-30b-d6.pdf for
-// details of the Cryptoki PKCS#11 API.
+// See https://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/pkcs11-base-v2.40.pdf
+// for details of the Cryptoki PKCS#11 API.
+// See https://github.com/letsencrypt/pkcs11key/blob/master/test.sh for examples
+// of how to test and/or benchmark.
 package pkcs11key
 
 import (
@@ -396,9 +398,9 @@ func (ps *Key) Sign(rand io.Reader, msg []byte, opts crypto.SignerOpts) (signatu
 		return nil, errors.New("pkcs11key: session was nil")
 	}
 
-	// When the alwaysAuthenticate bit is true (e.g. on a Yubikey NEO in PIV mode),
+	// When the alwaysAuthenticate bit is true (e.g. on a YubiKey in PIV mode),
 	// each Sign has to include a Logout/Login, or the next Sign request will get
-	// CKR_USER_NOT_LOGGED_IN. This is very slow, but on the NEO it's not possible
+	// CKR_USER_NOT_LOGGED_IN. This is very slow, but on the YubiKey it's not possible
 	// to clear the CKA_ALWAYS_AUTHENTICATE bit, so this is the only available
 	// workaround.
 	// Also, since logged in / logged out is application state rather than session

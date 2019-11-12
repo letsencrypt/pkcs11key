@@ -1,6 +1,9 @@
 // Package pkcs11key implements crypto.Signer for PKCS #11 private keys.
-// See ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-11/v2-30/pkcs-11v2-30b-d6.pdf for
-// details of the Cryptoki PKCS#11 API.
+// See https://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/pkcs11-base-v2.40.pdf
+// for details of the Cryptoki PKCS#11 API.
+// See https://github.com/letsencrypt/pkcs11key/blob/master/test.sh for examples
+// of how to test and/or benchmark.
+// Latest version of this package is v4: import "github.com/letsencrypt/pkcs11key/v4"
 package pkcs11key
 
 import (
@@ -393,7 +396,7 @@ func (ps *Key) Sign(rand io.Reader, msg []byte, opts crypto.SignerOpts) (signatu
 		if err := ps.module.Logout(*ps.session); err != nil {
 			return nil, fmt.Errorf("pkcs11key: logout: %s", err)
 		}
-		if err = ps.module.Login(*ps.session, pkcs11.CKU_USER, ps.pin); err != nil {
+		if err = ps.module.Login(*ps.session, pkcs11.CKU_CONTEXT_SPECIFIC, ps.pin); err != nil {
 			return nil, fmt.Errorf("pkcs11key: login: %s", err)
 		}
 	}
