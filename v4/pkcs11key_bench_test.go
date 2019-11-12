@@ -15,7 +15,7 @@ import (
 )
 
 var module = flag.String("module", "", "Path to PKCS11 module")
-var tokenLabel = flag.String("tokenLabel", "", "Token label")
+var tokenLabel = flag.String("tokenLabel", "", "Token label (e.g. from `pkcs11-tool -L`)")
 var pin = flag.String("pin", "", "PIN")
 var certFile = flag.String("cert", "", "Certificate to sign with (PEM)")
 var sessionCount = flag.Int("sessions", runtime.GOMAXPROCS(-1), `Number of PKCS#11 sessions to use.
@@ -34,8 +34,8 @@ func readCert(certContents []byte) (*x509.Certificate, error) {
 // BenchmarkPKCS11 signs a certificate repeatedly using a PKCS11 token and
 // measures speed. To run (with SoftHSM):
 // go test -bench=. -benchtime 5s ./crypto/pkcs11key/ \
-//   -module /usr/lib/softhsm/libsofthsm.so -token-label "softhsm token" \
-//   -pin 1234 -private-key-label "my key" -cpu 4
+//   -module /usr/lib/softhsm/libsofthsm.so -tokenLabel "softhsm token" \
+//   -pin 1234 -sessions 4
 // You can adjust benchtime if you want to run for longer or shorter, and change
 // the number of CPUs to select the parallelism you want.
 func BenchmarkPKCS11(b *testing.B) {
