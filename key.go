@@ -396,7 +396,7 @@ func (ps *Key) Sign(rand io.Reader, msg []byte, opts crypto.SignerOpts) (signatu
 		if err := ps.module.Logout(*ps.session); err != nil {
 			return nil, fmt.Errorf("pkcs11key: logout: %s", err)
 		}
-		if err = ps.module.Login(*ps.session, pkcs11.CKU_USER, ps.pin); err != nil {
+		if err = ps.module.Login(*ps.session, pkcs11.CKU_CONTEXT_SPECIFIC, ps.pin); err != nil {
 			return nil, fmt.Errorf("pkcs11key: login: %s", err)
 		}
 	}
