@@ -142,6 +142,16 @@ func initialize(modulePath string) (ctx, error) {
 }
 
 // New instantiates a new handle to a PKCS #11-backed key.
+//
+// This function will find the private key to sign with by finding a copy of the
+// provided public key in the token, then looking for a private key object that
+// has the same CKA_ID as that public key. From
+// https://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/pkcs11-base-v2.40.pdf:
+//
+// "The CKA_ID field is intended to distinguish among multiple keys. In
+//  the case of public and private keys, this field assists in handling
+//  multiple keys held by the same subject; the key identifier for a
+//  public key and its corresponding private key should be the same."
 func New(modulePath, tokenLabel, pin string, publicKey crypto.PublicKey) (*Key, error) {
 	module, err := initialize(modulePath)
 	if err != nil {
@@ -204,7 +214,7 @@ func (ps *Key) getPublicKeyID(publicKey crypto.PublicKey) ([]byte, error) {
 			pkcs11.NewAttribute(pkcs11.CKA_PUBLIC_EXPONENT, big.NewInt(int64(key.E)).Bytes()),
 		}
 	case *ecdsa.PublicKey:
-		// http://docs.oasis-open.org/pkcs11/pkcs11-curr/v2.40/os/pkcs11-curr-v2.40-os.html#_ftn1
+		// https://docs.oasis-open.org/pkcs11/pkcs11-curr/v2.40/os/pkcs11-curr-v2.40-os.html#_ftn1
 		// PKCS#11 v2.20 specified that the CKA_EC_POINT was to be store in a DER-encoded
 		// OCTET STRING.
 		rawValue := asn1.RawValue{
