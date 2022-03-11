@@ -1,4 +1,4 @@
-module github.com/letsencrypt/pkcs11key
+module github.com/letsencrypt/pkcs11key/v4
 
 go 1.12
 

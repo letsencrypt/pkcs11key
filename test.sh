@@ -41,11 +41,11 @@ softhsm2-util --module "${MODULE}" --slot 1 --init-token --label entropic_ecdsa 
 SLOT_ASSIGNMENT=$(sed 's/.*to slot \(.\+\)/\1/' slot-assignment.txt)
 softhsm2-util --module "${MODULE}" --slot "${SLOT_ASSIGNMENT}" --import ../v4/testdata/entropic_ecdsa.key --label entropic_ecdsa_key --pin 1234 --id C0FFEE
 
-go test ./
+go test github.com/letsencrypt/pkcs11key/v4
 
 # Run the benchmark. Arguments: $1: token label, $2: certificate filename
 function bench {
-  go test ./ \
+  go test github.com/letsencrypt/pkcs11key/v4 \
     -module ${MODULE} \
     -test.run xxxNONExxx \
     -pin 1234 \
