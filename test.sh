@@ -28,29 +28,18 @@ if [ -r /proc/brcm_monitor0 ]; then
   exit 2
 fi
 
-cd $(dirname $0)
+cd $(dirname $0)/v4
 DIR=$(mktemp -d -t softhXXXX)
 
-# Travis doesn't currently offer softhsm2 (it's not in Ubuntu Trusty), so we run
-# softhsm2 if it's available (e.g., locally), and softhsm otherwise (e.g. in
-# Travis). ECDSA is only supported in SoftHSMv2 so we skip the ECDSA benchmark
-# when it's not available.
-if $(type softhsm2-util 2>/dev/null >&2) ; then
-  MODULE=${MODULE:-/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so}
-  export SOFTHSM2_CONF=${DIR}/softhsm.conf
-  echo directories.tokendir = ${DIR} > ${SOFTHSM2_CONF}
-  softhsm2-util --module ${MODULE} --slot 0 --init-token --label silly_signer --pin 1234 --so-pin 1234
-  softhsm2-util --module ${MODULE} --slot 0 --import v4/testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
-  softhsm2-util --module ${MODULE} --slot 1 --init-token --label entropic_ecdsa --pin 1234 --so-pin 1234
-  softhsm2-util --module ${MODULE} --slot 1 --import v4/testdata/entropic_ecdsa.key --label entropic_ecdsa_key --pin 1234 --id C0FFEE
-else
-  MODULE=${MODULE:-/usr/lib/softhsm/libsofthsm.so}
-  export SOFTHSM_CONF=${DIR}/softhsm.conf
-  SLOT=0
-  echo ${SLOT}:${DIR}/softhsm-slot${SLOT}.db > ${SOFTHSM_CONF}
-  softhsm --module ${MODULE} --slot ${SLOT} --init-token --label silly_signer --pin 1234 --so-pin 1234
-  softhsm --module ${MODULE} --slot ${SLOT} --import v4/testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
-fi
+MODULE=${MODULE:-/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so}
+export SOFTHSM2_CONF=${DIR}/softhsm.conf
+echo directories.tokendir = ${DIR} > ${SOFTHSM2_CONF}
+softhsm2-util --module ${MODULE} --free --init-token --label silly_signer --pin 1234 --so-pin 1234 > slot-assignment.txt
+SLOT_ASSIGNMENT=$(sed -n 's/.*to slot \(.\+\)/\1/p' slot-assignment.txt)
+softhsm2-util --module "${MODULE}" --slot "${SLOT_ASSIGNMENT}" --import ../v4/testdata/silly_signer.key --label silly_signer_key --pin 1234 --id F00D
+softhsm2-util --module "${MODULE}" --free --init-token --label entropic_ecdsa --pin 1234 --so-pin 1234 > slot-assignment.txt
+SLOT_ASSIGNMENT=$(sed -n 's/.*to slot \(.\+\)/\1/p' slot-assignment.txt)
+softhsm2-util --module "${MODULE}" --slot "${SLOT_ASSIGNMENT}" --import ../v4/testdata/entropic_ecdsa.key --label entropic_ecdsa_key --pin 1234 --id C0FFEE
 
 go test github.com/letsencrypt/pkcs11key/v4
 

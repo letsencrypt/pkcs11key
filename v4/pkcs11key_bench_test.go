@@ -2,7 +2,6 @@ package pkcs11key
 
 import (
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"flag"
@@ -53,6 +52,13 @@ func BenchmarkPKCS11(b *testing.B) {
 		b.Fatalf("failed to parse %s: %s", *certFile, err)
 	}
 
+	pool, err := NewPool(*sessionCount, *module, *tokenLabel, *pin, cert.PublicKey)
+	if err != nil {
+		b.Fatal(err)
+		return
+	}
+	defer pool.Destroy()
+
 	// A minimal, bogus certificate to be signed.
 	// Note: we choose a large N to make up for some of the missing fields in the
 	// bogus certificate, so we wind up something approximately the size of a real
@@ -65,18 +71,8 @@ func BenchmarkPKCS11(b *testing.B) {
 		NotBefore:          time.Now(),
 		NotAfter:           time.Now(),
 
-		PublicKey: &rsa.PublicKey{
-			N: N,
-			E: 1 << 17,
-		},
+		PublicKey: pool.Public(),
 	}
-
-	pool, err := NewPool(*sessionCount, *module, *tokenLabel, *pin, cert.PublicKey)
-	if err != nil {
-		b.Fatal(err)
-		return
-	}
-	defer pool.Destroy()
 
 	instance := pool.get()
 	if instance.alwaysAuthenticate {
@@ -113,7 +109,7 @@ func BenchmarkPKCS11(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			_, err = x509.CreateCertificate(rand.Reader, &template, &template, template.PublicKey, pool)
+			_, err = x509.CreateCertificate(rand.Reader, &template, &template, pool.Public(), pool)
 			if err != nil {
 				b.Fatal(err)
 				return
