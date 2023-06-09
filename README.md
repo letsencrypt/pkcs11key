@@ -6,8 +6,6 @@ The pkcs11key package implements a crypto.Signer interface for a PKCS#11 private
 If you are using Go modules, you should import this with the module-compatible
 path github.com/letsencrypt/pkcs11key/v4
 
-[![Build Status](https://travis-ci.org/letsencrypt/pkcs11key.svg)](https://travis-ci.org/letsencrypt/pkcs11key)
-
 ## License summary
 Some of this code is Copyright (c) 2014 CloudFlare Inc., some is Copyright (c)
 2015 Internet Security Research Group.
