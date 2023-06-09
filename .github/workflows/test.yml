@@ -16,19 +16,16 @@ jobs:
           - "1.20.4"
           - "1.20.5"
 
-    env:
-      GO_VERSION: ${{ matrix.GO_VERSION }}
-
     steps:
     - uses: actions/checkout@v3
 
     - name: Install SoftHSM
       run: sudo apt-get install -y softhsm
 
-    - name: Set up Go ${GO_VERSION}
+    - name: Set up Go ${{ matrix.GO_VERSION }}
       uses: actions/setup-go@v4
       with:
-        go-version: ${GO_VERSION}
+        go-version: ${{ matrix.GO_VERSION }}
         cache: false
 
     - name: Test
