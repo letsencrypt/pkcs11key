@@ -7,15 +7,12 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/x509"
 	"encoding/asn1"
 	"encoding/binary"
-	"encoding/pem"
 	"fmt"
 	"log"
 	"math"
 	"math/big"
-	"os"
 	"reflect"
 	"testing"
 
@@ -289,20 +286,6 @@ func TestInitializeKeyNotFound(t *testing.T) {
 	} else if err.Error() != expectedText {
 		t.Errorf("Expected error to contain %q, got %q", expectedText, err)
 	}
-}
-
-// loadCert loads a PEM certificate specified by filename or returns an error
-func loadCert(filename string) (cert *x509.Certificate, err error) {
-	certPEM, err := os.ReadFile(filename)
-	if err != nil {
-		return
-	}
-	block, _ := pem.Decode(certPEM)
-	if block == nil {
-		return nil, fmt.Errorf("No data in cert PEM file %s", filename)
-	}
-	cert, err = x509.ParseCertificate(block.Bytes)
-	return
 }
 
 func TestSignECDSA(t *testing.T) {
