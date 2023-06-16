@@ -1,3 +1,4 @@
 softhsm.conf
 slot-assignment.txt
 generation
+v4/softhsm/
