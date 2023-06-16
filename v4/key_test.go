@@ -227,13 +227,10 @@ func setup(t *testing.T, pubKey crypto.PublicKey) *Key {
 		pin:        "unused",
 		publicKey:  pubKey,
 	}
-
 	err := ps.setup()
-
 	if err != nil {
 		t.Fatalf("Failed to set up Key of type %T: %s", pubKey, err)
 	}
-
 	return &ps
 }
 
