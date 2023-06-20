@@ -5,6 +5,12 @@
 # repeatedly with the same slot ids.
 
 cd $(dirname $0)/v4
+
+trap cleanUp EXIT
+function cleanUp {
+    rm -f slot-assignment.txt
+}
+
 export MODULE=${MODULE:-/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so}
 export SOFTHSM2_CONF=${PWD}/softhsm.conf
 echo "directories.tokendir = ${PWD}/softhsm/" > ${SOFTHSM2_CONF}
