@@ -117,7 +117,7 @@ func (c *mockCtx) FindObjects(sh pkcs11.SessionHandle, max int) ([]pkcs11.Object
 	if reflect.DeepEqual(c.currentSearch, []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
-		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, []uint8{0x6, 0x8, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x3, 0x1, 0x7}),
+		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ecOid),
 		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, ecKeyID),
 	}) {
 		return []pkcs11.ObjectHandle{ecPublicKeyHandle}, false, nil
@@ -162,6 +162,8 @@ func rsaPrivateAttributes(template []*pkcs11.Attribute) ([]*pkcs11.Attribute, er
 	}
 	return output, nil
 }
+
+var ecOid = []byte{0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07}
 
 func ecPublicKeyAttributes(template []*pkcs11.Attribute) ([]*pkcs11.Attribute, error) {
 	var output []*pkcs11.Attribute
