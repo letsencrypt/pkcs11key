@@ -21,11 +21,11 @@ import (
 
 func init() {
 	var err error
-	ecKey, err = genECPubKey()
+	ecPubKey, err = genECPubKey()
 	if err != nil {
 		log.Fatal(err)
 	}
-	ecKeyID, err = getECPoint(ecKey.(*ecdsa.PublicKey))
+	ecPoint, err = getECPoint(ecPubKey.(*ecdsa.PublicKey))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -73,11 +73,13 @@ const rsaPrivateKeyHandle = pkcs11.ObjectHandle(23)
 const rsaPublicKeyHandle = pkcs11.ObjectHandle(24)
 const rsaKeyID = byte(0x04)
 
-var ecKey crypto.PublicKey
-var ecKeyID []byte
+var ecPubKey crypto.PublicKey
+var ecPoint []byte
+var ecOid = []byte{0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07}
 
 const ecPrivateKeyHandle = pkcs11.ObjectHandle(32)
 const ecPublicKeyHandle = pkcs11.ObjectHandle(33)
+const ecKeyID = byte(0x03)
 
 var slots = []uint{7, 8, 9}
 var tokenInfo = pkcs11.TokenInfo{
@@ -118,13 +120,13 @@ func (c *mockCtx) FindObjects(sh pkcs11.SessionHandle, max int) ([]pkcs11.Object
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
 		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ecOid),
-		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, ecKeyID),
+		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, ecPoint),
 	}) {
 		return []pkcs11.ObjectHandle{ecPublicKeyHandle}, false, nil
 	}
 	if reflect.DeepEqual(c.currentSearch, []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
-		pkcs11.NewAttribute(pkcs11.CKA_ID, ecKeyID),
+		pkcs11.NewAttribute(pkcs11.CKA_ID, []byte{ecKeyID}),
 	}) {
 		return []pkcs11.ObjectHandle{ecPrivateKeyHandle}, false, nil
 	}
@@ -163,14 +165,12 @@ func rsaPrivateAttributes(template []*pkcs11.Attribute) ([]*pkcs11.Attribute, er
 	return output, nil
 }
 
-var ecOid = []byte{0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07}
-
 func ecPublicKeyAttributes(template []*pkcs11.Attribute) ([]*pkcs11.Attribute, error) {
 	var output []*pkcs11.Attribute
 	for _, a := range template {
 		switch a.Type {
 		case pkcs11.CKA_ID:
-			output = append(output, p11Attribute(a.Type, ecKeyID))
+			output = append(output, p11Attribute(a.Type, []byte{ecKeyID}))
 		}
 	}
 	return output, nil
@@ -287,7 +287,7 @@ func TestInitializeKeyNotFound(t *testing.T) {
 }
 
 func TestSignECDSA(t *testing.T) {
-	ps := setup(t, ecKey)
+	ps := setup(t, ecPubKey)
 	sig := sign(t, ps, crypto.SHA256)
 
 	expected, err := ecdsaPKCS11ToRFC5480(signInput)
