@@ -29,19 +29,20 @@ if [ -r /proc/brcm_monitor0 ]; then
 fi
 
 cd $(dirname $0)/v4
+DIR=$(mktemp -d -t softhXXXX)
 
 trap cleanUp EXIT
 function cleanUp {
-    if [ -d "./softhsm/" ]; then
-        rm -rf ./softhsm
+    if [ -d "${DIR}" ]; then
+        rm -rf ${DIR}
     fi
     rm -f slot-assignment.txt
 }
 
 mkdir -p softhsm
 export MODULE=${MODULE:-/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so}
-export SOFTHSM2_CONF=${PWD}/softhsm.conf
-echo "directories.tokendir = ${PWD}/softhsm/" > ${SOFTHSM2_CONF}
+export SOFTHSM2_CONF=${DIR}/softhsm.conf
+echo "directories.tokendir = ${DIR}" > ${SOFTHSM2_CONF}
 softhsm2-util --module "${MODULE}" --show-slots
 
 softhsm2-util --module "${MODULE}" --free --init-token --label silly_signer --pin 1234 --so-pin 1234 > slot-assignment.txt
