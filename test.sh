@@ -33,9 +33,7 @@ DIR=$(mktemp -d -t softhXXXX)
 
 trap cleanUp EXIT
 function cleanUp {
-    if [ -d "${DIR}" ]; then
-        rm -rf ${DIR}
-    fi
+    rm -r ${DIR}
     rm -f slot-assignment.txt
 }
 
