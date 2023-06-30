@@ -42,15 +42,17 @@ func genECPubKey() (crypto.PublicKey, error) {
 	return privateKey.Public(), nil
 }
 
-// Retrieve the DER-encoding of ANSI X9.62 ECPoint value 'Q' from a given ECDSA
-// public key to match against a PKCS#11 CKA_EC_POINT attribute. If the
+// Retrieve the DER-encoding of ANSI X9.62 ECPoint value 'Q'[[1]] from a given
+// ECDSA public key to match against a PKCS#11 CKA_EC_POINT attribute. If the
 // point cannot be marshalled, an error will be returned.
 //
+// The subjectPublicKey from SubjectPublicKeyInfo is the ECC public key. ECC
+// public keys have the following syntax[[2]]:
+//
+// ECPoint ::= OCTET STRING
+//
 // [1]: http://docs.oasis-open.org/pkcs11/pkcs11-curr/v2.40/cos01/pkcs11-curr-v2.40-cos01.html#_Toc408226932
-// [2]: https://www.itu.int/ITU-T/formal-language/itu-t/x/x894/2018-cor1/ANSI-X9-62.html
-// defines ECPoint as an ASN.1 OCTET STRING
-// [3]: https://www.secg.org/sec1-v2.pdf Section 2.3.3 for data conversions
-// between formats
+// [2]: https://datatracker.ietf.org/doc/html/rfc5480#section-2.2
 func getECPoint(e *ecdsa.PublicKey) ([]byte, error) {
 	rawValue := asn1.RawValue{
 		Tag:   4,
