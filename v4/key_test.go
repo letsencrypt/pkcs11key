@@ -46,10 +46,8 @@ func genECPubKey() (crypto.PublicKey, error) {
 // public key to match against a PKCS#11 CKA_EC_POINT attribute. If the
 // point cannot be marshalled, an error will be returned.
 //
-// [1]:
-// http://docs.oasis-open.org/pkcs11/pkcs11-curr/v2.40/cos01/pkcs11-curr-v2.40-cos01.html#_Toc408226932
-// [2]:
-// https://www.itu.int/ITU-T/formal-language/itu-t/x/x894/2018-cor1/ANSI-X9-62.html
+// [1]: http://docs.oasis-open.org/pkcs11/pkcs11-curr/v2.40/cos01/pkcs11-curr-v2.40-cos01.html#_Toc408226932
+// [2]: https://www.itu.int/ITU-T/formal-language/itu-t/x/x894/2018-cor1/ANSI-X9-62.html
 // defines ECPoint as an ASN.1 OCTET STRING
 // [3]: https://www.secg.org/sec1-v2.pdf Section 2.3.3 for data conversions
 // between formats
