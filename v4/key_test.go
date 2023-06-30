@@ -10,6 +10,7 @@ import (
 	"encoding/asn1"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"math"
 	"math/big"
 	"reflect"
@@ -17,6 +18,53 @@ import (
 
 	"github.com/miekg/pkcs11"
 )
+
+func init() {
+	var err error
+	ecPubKey, err = genECPubKey()
+	if err != nil {
+		log.Fatal(err)
+	}
+	ecPoint, err = getECPoint(ecPubKey.(*ecdsa.PublicKey))
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+// Generate an ephemeral ECDSA key pair and return the public key corresponding
+// to the private key. If a key pair cannot be generated, an error is returned.
+func genECPubKey() (crypto.PublicKey, error) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
+	return privateKey.Public(), nil
+}
+
+// Retrieve the DER-encoding of ANSI X9.62 ECPoint value 'Q'[[1]] from a given
+// ECDSA public key to match against a PKCS#11 CKA_EC_POINT attribute. If the
+// point cannot be marshalled, an error will be returned.
+//
+// The subjectPublicKey from SubjectPublicKeyInfo is the ECC public key. ECC
+// public keys have the following syntax[[2]]:
+//
+// ECPoint ::= OCTET STRING
+//
+// [1]: http://docs.oasis-open.org/pkcs11/pkcs11-curr/v2.40/cos01/pkcs11-curr-v2.40-cos01.html#_Toc408226932
+// [2]: https://datatracker.ietf.org/doc/html/rfc5480#section-2.2
+func getECPoint(e *ecdsa.PublicKey) ([]byte, error) {
+	rawValue := asn1.RawValue{
+		Tag:   4,
+		Bytes: elliptic.Marshal(e.Curve, e.X, e.Y),
+	}
+	marshalledPoint, err := asn1.Marshal(rawValue)
+	if err != nil {
+		return nil, err
+	}
+
+	return marshalledPoint, nil
+}
 
 type mockCtx struct {
 	currentSearch []*pkcs11.Attribute
@@ -33,8 +81,9 @@ const rsaPrivateKeyHandle = pkcs11.ObjectHandle(23)
 const rsaPublicKeyHandle = pkcs11.ObjectHandle(24)
 const rsaKeyID = byte(0x04)
 
-// A fake EC public key for use in testing. See RSA above.
-var ecKey = &ecdsa.PublicKey{X: big.NewInt(1), Y: big.NewInt(1), Curve: elliptic.P256()}
+var ecPubKey crypto.PublicKey
+var ecPoint []byte
+var ecOid = []byte{0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07}
 
 const ecPrivateKeyHandle = pkcs11.ObjectHandle(32)
 const ecPublicKeyHandle = pkcs11.ObjectHandle(33)
@@ -78,8 +127,8 @@ func (c *mockCtx) FindObjects(sh pkcs11.SessionHandle, max int) ([]pkcs11.Object
 	if reflect.DeepEqual(c.currentSearch, []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
-		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, []uint8{0x6, 0x8, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x3, 0x1, 0x7}),
-		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, []uint8{0x4, 0x41, 0x4, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1}),
+		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ecOid),
+		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, ecPoint),
 	}) {
 		return []pkcs11.ObjectHandle{ecPublicKeyHandle}, false, nil
 	}
@@ -124,24 +173,12 @@ func rsaPrivateAttributes(template []*pkcs11.Attribute) ([]*pkcs11.Attribute, er
 	return output, nil
 }
 
-var ecOid = []byte{0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07}
-
-var ecPoint = []byte{0x04, 0x41, 0x04, 0x4C, 0xD7, 0x7B, 0x7B, 0x2E,
-	0x3D, 0x57, 0x98, 0xB8, 0x2F, 0x99, 0xB4, 0x83,
-	0x99, 0xE6, 0xD4, 0x4C, 0x4F, 0xBC, 0x2D, 0x60,
-	0xCD, 0x08, 0x8E, 0x93, 0x65, 0x6F, 0x20, 0x51,
-	0x1C, 0xE7, 0xFD, 0x59, 0x34, 0xAA, 0xA9, 0x36,
-	0x26, 0xCE, 0x4A, 0xC5, 0xA2, 0x4A, 0x85, 0x6C,
-	0xB3, 0x95, 0xFF, 0x92, 0x0F, 0x56, 0x76, 0x34,
-	0x1F, 0x69, 0x52, 0x5F, 0x20, 0x83, 0x13, 0x50,
-	0xA3, 0xDE, 0xBE}
-
 func ecPublicKeyAttributes(template []*pkcs11.Attribute) ([]*pkcs11.Attribute, error) {
 	var output []*pkcs11.Attribute
 	for _, a := range template {
 		switch a.Type {
 		case pkcs11.CKA_ID:
-			output = append(output, p11Attribute(a.Type, []byte{byte(ecKeyID)}))
+			output = append(output, p11Attribute(a.Type, []byte{ecKeyID}))
 		}
 	}
 	return output, nil
@@ -258,7 +295,7 @@ func TestInitializeKeyNotFound(t *testing.T) {
 }
 
 func TestSignECDSA(t *testing.T) {
-	ps := setup(t, ecKey)
+	ps := setup(t, ecPubKey)
 	sig := sign(t, ps, crypto.SHA256)
 
 	expected, err := ecdsaPKCS11ToRFC5480(signInput)
