@@ -12,8 +12,8 @@ jobs:
       fail-fast: false
       matrix:
         GO_VERSION:
-          - "1.24.x"
-          - "1.25.x"
+          - "oldstable"
+          - "stable"
 
     steps:
     - uses: actions/checkout@v3
