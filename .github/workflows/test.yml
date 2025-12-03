@@ -3,7 +3,7 @@ name: Test
 on: [push, pull_request]
 
 env:
-    GODEBUG: cgocheck=2
+    GOEXPERIMENT: cgocheck2
 
 jobs:
   build:
