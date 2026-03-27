@@ -205,7 +205,7 @@ func (c *mockCtx) GetTokenInfo(slotID uint) (pkcs11.TokenInfo, error) {
 	return tokenInfo, nil
 }
 
-func (c *mockCtx) Initialize() error {
+func (c *mockCtx) Initialize(...pkcs11.InitializeOption) error {
 	return nil
 }
 
